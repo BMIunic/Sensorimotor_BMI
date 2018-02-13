@@ -1,0 +1,246 @@
+/* =STS=> nspPlugin.h[5199].aa01   submit   SMID:2 */
+//////////////////////////////////////////////////////////////////////////////
+///
+/// @file nspPlugin.h
+/// @author  Ehsan Azar
+/// @copyright (c) Copyright Blackrock Microsystems
+/// @brief
+///    Generic NSP plugin API header file
+///
+/// @date 3/4/13 4:24p
+///
+///
+////////////////////////////////////////////////////////////////////////////////
+///
+/// @internal
+/// @note This file is distributed to the customer.<br>
+///        do not include firmware headers.<br>
+/// @note
+///       Since this is an API, keep the rich set of documents in the header file.<br>
+/// @endinternal
+///
+/// @addtogroup PluginAPI
+/// @{
+///
+
+#ifndef NSPPLUGIN_H_INCLUDED       // include guards
+#define NSPPLUGIN_H_INCLUDED
+
+#include <stdint.h>
+#include <limits.h>
+#include "cbhwlib.h"
+
+/**
+ * @def DLL_IMPORT
+ * Shared library export signature
+ * @def DLL_EXPORT
+ * Shared library import signature
+ */
+#ifdef WIN32
+    // Windows shared library
+    #define DLL_IMPORT  __declspec(dllimport)
+    #define DLL_EXPORT  __declspec(dllexport)
+#else
+    // Non Windows shared library
+    #define DLL_IMPORT
+    #define DLL_EXPORT  __attribute__ ((visibility ("default")))
+#endif
+
+/**
+ * @def CBEXTAPI
+ * API function declaration prefix
+ *  default is to export, used by extension writers
+ */
+#ifdef CBEXT_IMPORTS
+    #define CBEXTAPI DLL_IMPORT
+#elif ! defined(STATIC_CBEXT_LINK)
+    #define CBEXTAPI DLL_EXPORT
+#else
+    #define CBEXTAPI
+#endif
+
+#define CBEXT_MAX_SAMPLERATE     30000  ///< NSP sampling frequency
+
+/**
+ * Supported plugin intents
+ * @brief Plugin intents
+ * @see cbExtSettings::nIntent
+ */
+typedef struct {
+    /**
+     * @brief all possible intents
+     */
+    enum CBEXT_INTENT {
+        CBEXT_INTENT_NONE       =  0x0000,    ///< Invalid intent
+        CBEXT_INTENT_CHANTRIG   =  0x0001,    ///< Channel trigger plugin intent
+    } flags:32; ///< each bit of the flag defines what intent is supported
+} cbExtIntent;
+
+/**
+ * Combinatorial mask to specify comments of interest
+ * @brief Comment charset mask
+ * @see cbExtSettings::nIntent
+ */
+typedef struct {
+    /**
+     * This generic comment type will be ORed with #nCharsetMask
+     * @brief comments of interest.
+     */
+    enum CBEXT_CMT_MASK {
+        CBEXT_CMT_NONE       =  0x0001,    ///< Normal comments
+        CBEXT_CMT_NM         =  0x0002,    ///< NeuroMotive comments
+    } flags:8; ///< each bit of the flag defines what type of comment is required
+    uint8_t nCharsetMask; ///< mask for additional comments of interest
+} cbExtCommentMask;
+
+/**
+ * Plugin settings
+ * @brief Plugin settings provided by firmware
+ * @note Extension should rely on these settings instead of any requested values (#cbExtInfo)<br>
+ * Different buffer lengths can be requested by exporting symbols with the same name and type.
+ * Buffer lengths are determined before plugin main loop and cannot be changed.
+ * @see cbExtMainLoop()
+ */
+typedef struct {
+    uint32_t    nVer;               ///< Firmware version
+    uint32_t    nMemory;            ///< Maximum available memory
+    uint16_t    nAPIVer;            ///< API version
+    uint16_t    nCores;             ///< Assigned number of CPU cores
+    uint16_t    nCommentsBufferLen; ///< circular comments buffer length (determines assigned memory assuming comments of full length)
+    uint16_t    nLogsBufferLen;     ///< circular logging buffer length (determines assigned memory assuming logs of full length)
+    cbExtIntent iIntent;            ///< Plugin intent
+} cbExtSettings;
+
+/**
+ * Plugin information
+ * @brief Generic plugin information provided by extension
+ * @see cbExtSetup()
+ */
+typedef struct {
+    char             szName[16];             ///< Plugin name
+    uint32_t         nPluginVer;             ///< Plugin-specific version
+    uint32_t         nWarnCommentsThreshold; ///< Threshold (in percent) over which comment buffer should be emptied, or will result in warning (0 means no warning)
+    cbExtCommentMask iMask;                  ///< A combinatorial mask to specify which comments should be buffered
+} cbExtInfo;
+
+/**
+ * Plugin API function return values.<br>
+ * - 0 means success.
+ * - error codes are negative values.
+ * - warnings are positive values.
+ * @brief API return values
+ */
+typedef enum _CBEXTResult
+{
+    CBEXTRESULT_SUCCESS                =     0, ///< Successful operation
+    CBEXTRESULT_UNKNOWN                =    -1, ///< Unknown error
+    CBEXTRESULT_EXIT                   =    -2, ///< Firmware is about to exit (no further operation allowed, return from main thread)
+    CBEXTRESULT_INVALIDINTENT          =    -3, ///< Plugin intent does not support this operation
+    CBEXTRESULT_TIMEOUT                =    -4, ///< Command timed out
+    CBEXTRESULT_BUFFER_FULL            =    -5, ///< Buffer is full, try again later
+    CBEXTRESULT_INVALIDPARAM           =    -6, ///< Invalid parameter
+} cbExtResult;
+
+/**
+ * @brief Input comment
+ * @details
+ *   Comments may be generated by CereLink, NeuroMotive, or other applications.<br>
+ *   Comments also can be used to serve as custom events.
+ * @see cbExtGetComment
+ */
+typedef struct {
+    uint32_t nProctime;  ///< Comment proctime
+    uint32_t nData;      ///< Comment custom data (for NeuroMotive ROI events this is the encoded event about entering and exiting an ROI)
+    uint8_t  nCharset;   ///< Comment charset (for NeuroMotive ROI events this is always 255, for normal comments this is 0, for comments through CereLink any value can be specified by user)
+    uint8_t  nFlag;      ///< Comment flag (0 means #nData is custom value, 1 means #nData is timestamp when typing comment started)
+    char szCmt[128];     ///< Comment text (variable-length zero-ended)
+} cbExtComment;
+
+
+/**
+ * Provide information about this plugin.<br>
+ * Every plugin must implement this method, to provide its name and intent.
+ * @brief Get plugin information from plugin.
+ * @warning Plugin is not setup when this is called, plugin API commands must not be called from within this function.<br>
+ * Use #cbExtMainLoop to imlement plugin code.
+ * @note This function should not block for long.
+ *
+ * @param[out]  info Plugin information requested by firmware, provided by plugin
+ * @return API function return value ::cbExtResult
+ * If an error is returned plugin will not run
+ */
+CBEXTAPI    cbExtResult cbExtSetup(cbExtInfo * info);
+
+/**
+ * Every plugin must provide this to perform useful operation.<br>
+ * After plugin intent is determined this is called to hand over execution to the plugin code.
+ * @brief Main plugin loop
+ *
+ * @param[in]  settings Plugin settings provided by firmware
+ * @return API function return value ::cbExtResult
+ */
+CBEXTAPI    cbExtResult cbExtMainLoop(cbExtSettings * settings);
+
+/**
+ * Send log event to CereLink
+ * @brief Send log
+ *
+ * @ingroup CereLink
+ *
+ * Code snippet:
+ * @code
+ *  cbExtResult ret = cbExtLogEvent("Custom log string");
+ * @endcode
+ *
+ * @warning Maximum size of the log packet is 128 characters, the rest will be truncated.
+ *
+ * @param[in] szLog string to log (zero-ended)
+ * @return API function return value ::cbExtResult
+ */
+cbExtResult cbExtLogEvent(const char * szLog);
+
+/**
+ * @brief Get current sample time
+ * @details Get current sample time (firmware proctime).<br>
+ * The latency is memory bound.
+ *
+ * Code snippet:
+ * @code
+ * uint32_t procTime;
+ * cbExtResult ret = cbExtGetCurrentSampleTime(&procTime);
+ * @endcode
+ *
+ * @param[out] pnProctime sample time (in number of samples since reset)
+ * @return API function return value ::cbExtResult
+ */
+cbExtResult cbExtGetCurrentSampleTime(uint32_t * pnProctime);
+
+/**
+ * Get latest comment in the circular queue, and consume it.
+ * @brief Get one comment
+ *
+ * @warning To preserve memory, the function returns pointers to the internal extension circular buffer.<br>
+ * The contents must not be overwritten by extension. Any access violation may cause the extension to dump.
+ *
+ * @ingroup CereLink
+ *
+ * Code snippet:
+ * @code
+ * cbExtComment cmt;
+ * cbExtResult ret = cbExtGetOneComment(&cmt); // Get one comment
+ * if (ret == CBEXTRESULT_SUCCESS) {
+ *     // if this is a custom event with predefined charset
+ *     if (cmt.nCharset == 128)
+ *         printf("Comment %s Event %u\n", cmt.szCmt, cmt.nData);
+ * }
+ * @endcode
+ *
+ * @param[out] pComment last comment in the list
+ * @return API function return value ::cbExtResult
+ */
+cbExtResult cbExtGetOneComment(cbExtComment * pComment);
+
+
+/** @} */ // end of PluginAPI group
+#endif /* NSPPLUGIN_H_INCLUDED */
+
