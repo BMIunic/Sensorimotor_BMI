@@ -584,7 +584,7 @@ class Window(QtGui.QWidget):
 
         # Read the barrel map and resize it to the size of the stimulus image
         img = Image.open(barrel_map_path)
-        if img.mode == 'RGBA':
+        if img.mode == 'RGB':
             img = img.convert('L')
         img = img.resize((659, 494))
         img = np.rot90(np.rot90(img))
