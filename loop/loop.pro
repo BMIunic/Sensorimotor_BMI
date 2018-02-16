@@ -40,15 +40,12 @@ DEPENDPATH += $$PWD/libNSP
 win32:!win32-g++: PRE_TARGETDEPS += $$PWD/libNSP/cbsdkx64.lib
 else:unix|win32-g++: PRE_TARGETDEPS += $$PWD/libNSP/libcbsdkx64.a
 
-unix|win32: LIBS += -L$$PWD/x64/ -lalp4395
-
-INCLUDEPATH += $$PWD/x64
-DEPENDPATH += $$PWD/x64
-
-win32:!win32-g++: PRE_TARGETDEPS += $$PWD/x64/alp4395.lib
-else:unix|win32-g++: PRE_TARGETDEPS += $$PWD/x64/libalp4395.a
-
 QMAKE_CXXFLAGS_RELEASE *= -O
 QMAKE_CXXFLAGS_RELEASE -= -O1
 QMAKE_CXXFLAGS_RELEASE -= -O2
 QMAKE_CXXFLAGS_RELEASE -= -O3
+
+unix|win32: LIBS += -L$$PWD/libALP/ -lalp4395
+
+INCLUDEPATH += $$PWD/libALP
+DEPENDPATH += $$PWD/libALP

@@ -82,7 +82,7 @@ class SpkAndBehav : public QObject
 public:
     explicit SpkAndBehav(QObject *parent = 0); // read all protocoles to know the corresponding parameters
 #if DEMO == 0
-    static void LogCallback(UINT32, const cbSdkPktType type, const void* pEventData, void* pCallbackData);
+    static void LogCallback(UINT32, const cbSdkPktType type, const void* pEventData, void*);
 #endif
     static QList<unsigned int> SpkList;
     static QList<unsigned int> LickList;

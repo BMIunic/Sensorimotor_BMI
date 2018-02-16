@@ -19,6 +19,7 @@ public:
 
     QList<QList<QImage>> FrameList;
     QList<QImage> GuiFrameList;
+    QString input;
 
     double rewardStrength;
     double rewardLower;

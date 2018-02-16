@@ -55,9 +55,6 @@ SpkAndBehav::SpkAndBehav(QObject *parent) :
     QObject::connect(m_timer, SIGNAL(timeout()), this, SLOT(routine()));
 
 #if DEMO == 0
-    /// Tell pluging to start delivering spikes/digital packets
-    res = cbSdkSetComment(0, 0, 0, "GetPackets");
-
     /// Register the callback
     res = cbSdkRegisterCallback(0, CBSDKCALLBACK_LOG, LogCallback, 0);
 #endif
@@ -78,16 +75,13 @@ void SpkAndBehav::closeProgram()
 #if DEMO == 0
     /// Unregister the callback
     res = cbSdkUnRegisterCallback(0, CBSDKCALLBACK_LOG);
-
-    /// Plugin stop sending spikes
-    cbSdkSetComment(0, 0, 0, "Stop");
 #endif
 }
 
 
 #if DEMO == 0
 /// Callback routine: Read all the packets!
-void SpkAndBehav::LogCallback(UINT32, const cbSdkPktType type, const void* pEventData, void* pCallbackData)
+void SpkAndBehav::LogCallback(UINT32, const cbSdkPktType type, const void* pEventData, void*)
 {
     char *nPos;
     int nTime;
@@ -125,9 +119,6 @@ void SpkAndBehav::LogCallback(UINT32, const cbSdkPktType type, const void* pEven
                 // Get spike activity in a QList
                 //printf("T:%d C:%d U:%d\n", nTime, nChan, nUnit);
                 SpkList.append(nTime);
-                i++;
-                printf("compteur: %d" ,i);
-                printf("  ");
             }
             else{
                 // Get lick activity in a QList
